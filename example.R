@@ -4,6 +4,8 @@ library(rEloqua)
 
 ## Setup login object
 
+
+
 myLogin <- eloquaLogin(pod = 1, company = "myCompany", username = "myUsername", password = "myPassword")
 
 
