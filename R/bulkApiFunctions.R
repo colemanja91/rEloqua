@@ -1,9 +1,21 @@
-
+#' Create a set of authentication credentials required for Eloqua
+#'
+#' @param pod The pod your Eloqua instance resides in (used to create the UIR string)
+#' @param company The company/name of your Eloqua instance
+#' @param username Your username
+#' @param password Your password
+#' @example
+#' login <- eloquaLogin(1, "mycompany", "myuser", "mypassword")
 eloquaLogin <- setClass(Class = "eloquaLogin",
                         slots = c(pod = "numeric", company = "character",
                                   username = "character", password = "character"))
 
+
 ## Define Eloqua Activity export types
+
+#' Named list of activity objects available for export via Bulk API
+#'
+#' @description Contains the available Eloqua activity types and their respective fields
 eloquaActivities <- list(
 
   PageView = list(
@@ -165,6 +177,18 @@ eloquaActivities <- list(
 
 ## Generalized activity export definition builder
 
+#' Create an export definition
+#'
+#' @param login An eloquaLogin object
+#' @param type The type of export to create. Accepted values are contained in eloquaActivities
+#' @param fields A vector of the desired field names. If null, defaults to all available fields
+#' @param bulkFilter A named list containing filter parameters; example: list("ActivityDate" = c(operator = ">", value = "2015-11-20 00:00:00"))
+#' @param exportName A name to give to the export. If null, defaults to "Bulk API Export + (Timestamp)"
+#' @return A list; return of POST request to the export definition API endpoint
+#' @example
+#' login <- eloquaLogin(pod = 1, company = "myCompany", username = "myUser", password = "myPassword")
+#' filter <- list("ActivityDate" = c(operator = ">", value = "2015-11-20 00:00:00"))
+#' myExport <- defExport(login, "WebVisit", bulkFilter = filter, exportName = "My Web Visit Activity Export")
 defExport <- function(login, type, fields = NULL, bulkFilter = list(),
                       exportName = paste("Bulk API Export ", Sys.Date(), sep="")){
 
@@ -246,12 +270,23 @@ defExport <- function(login, type, fields = NULL, bulkFilter = list(),
 
   ## return
 
+  if (req$status == 201){
+    print("Export definition created successfully!")
+  }else{
+    print("Error; check returned object for more info")
+  }
+
   return(req)
 
 }
 
 ## Sync an export definition
 
+#' Begins syncing data for an export definition
+#'
+#' @param login An eloquaLogin object
+#' @param exportDefinition An httr POST return list created with defExport
+#' @return An httr POST list with the status of call and sync URI
 startSyncExport <- function(login, exportDefinition){
   exportDefContent <- content(exportDefinition)
 
@@ -270,12 +305,23 @@ startSyncExport <- function(login, exportDefinition){
               encode= "json"
   )
 
+  if (req$status == 201){
+    print("Sync created successfully!")
+  }else{
+    print("Error; check returned object for more info")
+  }
+
   return(req)
 
 }
 
 ## Get sync status
 
+#' Get the status of a previously created sync
+#'
+#' @param login An eloquaLogin object
+#' @param syncResponse An httr POST return list created with startSyncExport
+#' @return An httr POST list with the status of the sync
 getSyncStatus <- function(login, syncResponse){
   syncContent <- content(syncResponse)
 
@@ -295,7 +341,13 @@ getSyncStatus <- function(login, syncResponse){
 
 ## Sync an export and check status until done
 
-syncExport <- function(login, exportDefinition){
+#' Complete cycle of creating a sync and checking until finished
+#'
+#' @param login An eloquaLogin object
+#' @param exportDefinition An httr POST return list created with defExport
+#' @param maxTimeout Number of seconds to retry before timeout occurs
+#' @return A list of two lists, results from startSyncExport and getSyncStatus, after the sync is completed (or timeout occurs)
+syncExport <- function(login, exportDefinition, maxTimeout = 180){
 
   sync <- startSyncExport(login, exportDefinition)
 
@@ -304,9 +356,9 @@ syncExport <- function(login, exportDefinition){
 
   x <- 0
 
-  while (syncStatus %in% c("pending", "active") & x <= 180){
+  while (syncStatus %in% c("pending", "active") & x <= maxTimeout){
 
-    if (x == 180){
+    if (x == maxTimeout){
       warning("Stopping sync; timeout error")
     }
 
@@ -340,6 +392,11 @@ syncExport <- function(login, exportDefinition){
 
 ## Make calls iterating through the export definition and returning data as a list of lists
 
+#' Loop through the synced export data and return to a list of lists
+#'
+#' @param login An eloquaLogin object
+#' @param exportDefinition An httr POST return list created with defExport
+#' @return A list of lists containint the httr GET responses from the /activities/export/{id}/data endpoint
 getExportData <- function(login, exportDefinition){
   exportData <- list()
 
@@ -387,6 +444,10 @@ getExportData <- function(login, exportDefinition){
 
 ## Get data from the export return
 
+#' Parses through a list of lists from getExportData and returns data frame
+#'
+#' @param export A list of lists from getExportData
+#' @return A dataframe
 extractExportData <- function(export = list()){
   for (i in 1:length(export)){
     req <- export[[i]]
