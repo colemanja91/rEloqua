@@ -1,8 +1,9 @@
 Package: rEloqua
 Title: Functions to get data from the Eloqua Bulk API
 Version: 1.0.0
-Authors@R: "jecolema@redhat.com"
+Authors@R: person("Jeremiah", "Coleman", email = "jecolema@redhat.com", role = c("aut", "cre"))
 Description: Automates Eloqua Bulk API export calls to bring data direct into R for analysis
 Depends: R (>= 3.2.0)
-License: GPL
+License: MIT
 LazyData: true
+Imports: httr
